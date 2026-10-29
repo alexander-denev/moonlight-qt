@@ -70,6 +70,7 @@
 #define SER_SCREENCOMBINATIONMODE "screencombinationmode"
 #define SER_LEGACY_CUSTOMSCREENMODE "customscreenmode"
 #define SER_LEGACY_CUSTOMVDDSCREENMODE "customvddscreenmode"
+#define SER_AUTOMATICMOUSEMODE "automaticMouseMode"
 #define SER_MICROPHONE "microphone"
 #define SER_OVERLAYMENUPLACEMENT "overlaymenuplacement"
 #define SER_LEGACY_OVERLAYMENUPOS "overlaymenuposition"
@@ -256,6 +257,8 @@ void StreamingPreferences::reload()
     mouseMode = loadMouseMode(settings);
     m_HasMouseModeLaunchOverride = false;
     m_PersistedMouseMode = mouseMode;
+    // New key: existing profiles get the default (on) and keep their mouse mode as the fallback.
+    automaticMouseMode = settings.value(SER_AUTOMATICMOUSEMODE, true).toBool();
     absoluteTouchMode = settings.value(SER_ABSTOUCHMODE, true).toBool();
     enableNativeTouchpad = settings.value(SER_NATIVETOUCHPAD, false).toBool();
 #ifdef Q_OS_WIN32
@@ -759,6 +762,7 @@ void StreamingPreferences::save()
     settings.setValue(SER_MDNS, enableMdns);
     settings.setValue(SER_QUITAPPAFTER, quitAppAfter);
     saveMouseMode(settings, m_HasMouseModeLaunchOverride ? m_PersistedMouseMode : mouseMode);
+    settings.setValue(SER_AUTOMATICMOUSEMODE, automaticMouseMode);
     settings.setValue(SER_ABSTOUCHMODE, absoluteTouchMode);
     settings.setValue(SER_NATIVETOUCHPAD, enableNativeTouchpad);
     settings.setValue(SER_DUALSENSEHAPTICSMODE, dualSenseHapticsMode);

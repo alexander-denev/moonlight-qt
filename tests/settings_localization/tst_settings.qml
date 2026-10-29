@@ -56,6 +56,9 @@ TestCase {
         compare(qsTranslate("MouseModeStatus", "Press Ctrl+Alt+Shift+O to open the overlay menu."), "按 Ctrl+Alt+Shift+O 打开悬浮菜单。")
         compare(qsTranslate("OverlayMenuPanel", "Toggle Sunshine cursor"), "切换 Sunshine 光标")
         compare(qsTranslate("Session", "Absolute mouse mode may cause problems in games."), "绝对鼠标模式可能导致部分游戏出现问题。")
+        compare(qsTranslate("LegacySettingsPage", "Automatic mouse mode"), "自动鼠标模式")
+        compare(qsTranslate("LegacySettingsPage", "Absolute mouse mode on hosts without automatic mode"),
+                "在不支持自动模式的主机上使用绝对鼠标模式")
         compare(qsTranslate("AboutSettingsPage", "About"), "关于")
         verify(qsTranslate("OverlayMenuPanel", "Connected — select to release") !== "Connected — select to release")
         verify(qsTranslate("StylusReplayTest", "Stylus replay stopped.") !== "Stylus replay stopped.")

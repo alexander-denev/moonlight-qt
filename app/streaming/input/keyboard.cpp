@@ -75,27 +75,73 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected mouse mode toggle combo");
 
+        if (isAutomaticMouseModeActive()) {
+            // In automatic mode, switch to the other mode and keep it until unlocked
+            m_CursorPolicy.lock(m_CursorDecision.mode == CursorModePolicy::Mode::Absolute ?
+                                    CursorModePolicy::Mode::Relative : CursorModePolicy::Mode::Absolute);
+            evaluateCursorMode();
+            showAutomaticMouseModeNotification();
+            break;
+        }
+
         // Uncapture input
         setCaptureActive(false);
 
         // Toggle mouse mode
         m_MouseMode =
             StreamingPreferences::toggleMouseInputMode(m_MouseMode, m_LastAbsoluteMouseMode);
+        // On hosts without automatic mode, or while it waits for the host, this is the mode
+        m_FallbackMouseMode = m_MouseMode;
         const int cursorResult = synchronizeLocalCursorMode();
 
         // Recapture input
         setCaptureActive(true);
         showMouseModeNotification(true, cursorResult);
+        evaluateCursorMode();
         break;
     }
+
+    case KeyComboToggleMouseModeLock:
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Detected mouse mode lock combo");
+
+        if (m_CursorPolicy.isLocked()) {
+            m_CursorPolicy.unlock();
+        }
+        else if (isAutomaticMouseModeActive()) {
+            m_CursorPolicy.lock(m_CursorDecision.mode);
+        }
+        else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Automatic mouse mode is not active for this session");
+            break;
+        }
+        evaluateCursorMode();
+        showAutomaticMouseModeNotification();
+        break;
 
     case KeyComboToggleCursorHide:
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Detected show mouse combo");
 
-        if (isAbsoluteMouseMode()) {
+        if (!SDL_GetRelativeMouseMode() && isAutomaticMouseModeActive()) {
+            // Automatic mode draws the host's cursor locally; this hands it to the
+            // video for the session, and back.
+            m_HostCursorPreferVideo = !m_HostCursorPreferVideo;
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Host cursor drawn by the %s",
+                        m_HostCursorPreferVideo ? "host in the video" : "client");
+            updateHostCursorControl();
+            updateLocalCursor();
+            publishMouseModeStatus();
+            if (Session* session = Session::get()) {
+                session->showStreamingToast(MouseModeStatus::cursorMode(!m_HostCursorPreferVideo), 2000);
+            }
+        }
+        else if (isAbsoluteMouseMode()) {
             m_MouseMode = StreamingPreferences::toggleMouseCursorMode(m_MouseMode);
             m_LastAbsoluteMouseMode = m_MouseMode;
+            m_FallbackMouseMode = m_MouseMode;
             const int cursorResult = synchronizeLocalCursorMode();
             if (isCaptureActive()) {
                 applyCapturedCursorState();
@@ -199,6 +245,23 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
     default:
         Q_UNREACHABLE();
     }
+}
+
+void SdlInputHandler::showAutomaticMouseModeNotification()
+{
+    Session* session = Session::get();
+    if (session == nullptr || session->m_ConnectionInterrupted ||
+        session->m_SuppressConnectionErrorDialog) {
+        return;
+    }
+
+    QString message = MouseModeStatus::mouseMode(isAbsoluteMouseMode());
+    message += QStringLiteral(" · ") +
+               (m_CursorPolicy.isLocked()
+                    ? QCoreApplication::translate("MouseModeStatus",
+                                                  "Locked (Ctrl+Alt+Shift+A for automatic)")
+                    : QCoreApplication::translate("MouseModeStatus", "Automatic"));
+    session->showStreamingToast(message, 2500);
 }
 
 void SdlInputHandler::showMouseModeNotification(bool includeMouseMode, int cursorResult)

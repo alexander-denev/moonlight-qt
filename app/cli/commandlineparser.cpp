@@ -382,6 +382,7 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
     parser.addOption(QCommandLineOption("no-show-local-cursor",
                                         "Compatibility alias: select absolute-video when using "
                                         "absolute mouse. Prefer --mouse-mode."));
+    parser.addToggleOption("automatic-mouse", "automatic mouse mode on supported hosts");
     parser.addToggleOption("mouse-buttons-swap", "left and right mouse buttons swap");
     parser.addToggleOption("win-alt-swap", "win and alt keys swap");
     parser.addToggleOption("touchscreen-trackpad", "touchscreen in trackpad mode");
@@ -520,6 +521,9 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
     if (parser.isSet("mouse-mode") || legacyMouseOption) {
         preferences->setMouseModeLaunchOverride(selectedMouseMode);
     }
+
+    // Resolve --automatic-mouse and --no-automatic-mouse options
+    preferences->automaticMouseMode = parser.getToggleOptionValue("automatic-mouse", preferences->automaticMouseMode);
 
     // Resolve --mouse-buttons-swap and --no-mouse-buttons-swap options
     preferences->swapMouseButtons = parser.getToggleOptionValue("mouse-buttons-swap", preferences->swapMouseButtons);

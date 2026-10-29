@@ -250,6 +250,7 @@ SOURCES += \
     streaming/input/abstouch.cpp \
     streaming/input/cursorshapeclassifier.cpp \
     streaming/input/gamepad.cpp \
+    streaming/input/hostcursor.cpp \
     streaming/input/input.cpp \
     streaming/input/keyboard.cpp \
     streaming/input/mouse.cpp \
@@ -323,6 +324,8 @@ HEADERS += \
     cli/startstream.h \
     settings/streamingpreferences.h \
     streaming/input/cursorshapeclassifier.h \
+    streaming/input/cursormodepolicy.h \
+    streaming/input/hostcursormath.h \
     streaming/input/penhistory.h \
     streaming/input/input.h \
     streaming/input/gamepadsensorrate.h \

@@ -236,6 +236,7 @@ public:
     Q_ENUM(MouseMode)
 
     Q_PROPERTY(MouseMode mouseMode READ getMouseMode WRITE setMouseMode NOTIFY mouseModeChanged)
+    Q_PROPERTY(bool automaticMouseMode MEMBER automaticMouseMode NOTIFY automaticMouseModeChanged)
     Q_PROPERTY(bool absoluteTouchMode MEMBER absoluteTouchMode NOTIFY absoluteTouchModeChanged)
     Q_PROPERTY(bool enableNativeTouchpad MEMBER enableNativeTouchpad NOTIFY enableNativeTouchpadChanged)
     Q_PROPERTY(DualSenseHapticsMode dualSenseHapticsMode MEMBER dualSenseHapticsMode NOTIFY dualSenseHapticsModeChanged)
@@ -326,6 +327,9 @@ public:
     static MouseMode toggleMouseCursorMode(MouseMode mode);
     static bool showHostCursorLocally(MouseMode mode, bool hostSupportsCursor,
                                       bool hostCursorVisible);
+    // Switch between absolute and relative input from the host cursor's state on
+    // hosts with cursor protocol v2; mouseMode is the fallback otherwise.
+    bool automaticMouseMode;
     bool absoluteTouchMode;
     bool enableNativeTouchpad;
     DualSenseHapticsMode dualSenseHapticsMode;
@@ -396,6 +400,7 @@ signals:
     void enableMdnsChanged();
     void quitAppAfterChanged();
     void mouseModeChanged();
+    void automaticMouseModeChanged();
     void absoluteTouchModeChanged();
     void enableNativeTouchpadChanged();
     void dualSenseHapticsModeChanged();

@@ -409,7 +409,18 @@ Column {
         title: qsTr("Mouse")
 
         ToggleRow {
-            title: qsTr("Absolute mouse mode")
+            title: qsTr("Automatic mouse mode")
+            searchKeywords: "Automatic mouse mode hybrid relative absolute remote desktop games cursor"
+            description: qsTr("On hosts that support it, the host's cursor is drawn as your own cursor, and the mouse switches between remote desktop and game control by itself when a game hides or captures the cursor.") + " " +
+                         qsTr("While streaming, Ctrl+Alt+Shift+M switches to the other mode and keeps it, and Ctrl+Alt+Shift+A keeps the current mode or returns to automatic.")
+            checked: StreamingPreferences.automaticMouseMode
+            onToggled: function(value) { StreamingPreferences.automaticMouseMode = value }
+        }
+
+        ToggleRow {
+            title: StreamingPreferences.automaticMouseMode ?
+                       qsTr("Absolute mouse mode on hosts without automatic mode") :
+                       qsTr("Absolute mouse mode")
             searchKeywords: "Absolute mouse mode relative mouse mode remote desktop games"
             description: qsTr("Send mouse position instead of movement. Best for remote desktop; relative mode is better for most games.") + " " +
                          qsTr("You can toggle this while streaming using Ctrl+Alt+Shift+M.") + "\n\n" +
@@ -433,7 +444,9 @@ Column {
             searchKeywords: "Display remote cursor locally show local cursor pointer"
             description: qsTr("Use the local pointer to show the remote cursor. Cursor shape depends on host support. Requires absolute mouse mode.") + " " +
                          qsTr("You can toggle this while streaming using Ctrl+Alt+Shift+C.") + "\n\n" +
-                         qsTranslate("MouseModeStatus", "If the desktop cursor is missing, press Ctrl+Alt+Shift+N to toggle the Sunshine video cursor.")
+                         qsTranslate("MouseModeStatus", "If the desktop cursor is missing, press Ctrl+Alt+Shift+N to toggle the Sunshine video cursor.") +
+                         (StreamingPreferences.automaticMouseMode ?
+                              "\n\n" + qsTr("In automatic mouse mode the host's cursor is always drawn as your own cursor; Ctrl+Alt+Shift+C shows it in the video instead.") : "")
             controlEnabled: StreamingPreferences.mouseMode !== StreamingPreferences.MM_RELATIVE
             checked: StreamingPreferences.mouseMode === StreamingPreferences.MM_ABSOLUTE_LOCAL
             onToggled: function(value) {
