@@ -523,7 +523,8 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
     }
 
     // Resolve --automatic-mouse and --no-automatic-mouse options
-    preferences->automaticMouseMode = parser.getToggleOptionValue("automatic-mouse", preferences->automaticMouseMode);
+    preferences->automaticMouseMode =
+        parser.getToggleOptionValue("automatic-mouse", preferences->automaticMouseMode);
 
     // Resolve --mouse-buttons-swap and --no-mouse-buttons-swap options
     preferences->swapMouseButtons = parser.getToggleOptionValue("mouse-buttons-swap", preferences->swapMouseButtons);

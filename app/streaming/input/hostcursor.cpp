@@ -33,20 +33,22 @@ using CursorModePolicy::Source;
 #define HOST_CURSOR_COMPOSITE_GRACE_MS 300
 
 // Packed mouse mode for the stats overlay, which runs on the decoder thread.
-enum MouseModeStatusBits {
+enum MouseModeStatusBits
+{
     MMS_ABSOLUTE = 0x01,
     MMS_LOCAL_CURSOR = 0x02,
-    MMS_SOURCE_SHIFT = 2,       // CursorModePolicy::Source
-    MMS_REASON_SHIFT = 4,       // MouseModeFallbackReason when the source is Fallback
+    MMS_SOURCE_SHIFT = 2, // CursorModePolicy::Source
+    MMS_REASON_SHIFT = 4, // MouseModeFallbackReason when the source is Fallback
 };
 
-enum MouseModeFallbackReason {
+enum MouseModeFallbackReason
+{
     MMFR_HOST_UNSUPPORTED,
     MMFR_WAITING_FOR_HOST,
     MMFR_HOST_UNAVAILABLE,
 };
 
-static std::atomic<int> s_MouseModeStatus { -1 };
+static std::atomic<int> s_MouseModeStatus{ -1 };
 
 static HostCursorMath::Rect toMathRect(const SDL_Rect& rect)
 {
@@ -120,16 +122,17 @@ void SdlInputHandler::startHostCursor()
     m_HostCursorSupported = isHostCursorV2Available();
     m_SpecialKeyCombos[KeyComboToggleMouseModeLock].enabled = m_HostCursorSupported;
     if (m_HostCursorSupported) {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host supports automatic mouse mode; subscribing to the host cursor");
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Host supports automatic mouse mode; subscribing to the host cursor");
 
         // The v1 local cursor is not used in a v2 session.
         m_LocalCursorMode.store(LI_CURSOR_MODE_VIDEO, std::memory_order_relaxed);
         resetRemoteCursor();
 
         updateHostCursorControl();
-    }
-    else if (m_AutomaticMouseMode) {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host does not support automatic mouse mode; using the regular mouse mode");
+    } else if (m_AutomaticMouseMode) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "Host does not support automatic mouse mode; using the regular mouse mode");
     }
 
     evaluateCursorMode();
@@ -159,8 +162,8 @@ bool SdlInputHandler::isHostCursorDrawingWanted()
 {
     // We draw the cursor whenever automatic mode has us positioning it with absolute
     // input, unless Ctrl+Alt+Shift+C handed it back to the video for this session.
-    return m_HostCursorSupported && m_CursorDecision.mode == Mode::Absolute && isAbsoluteMouseMode() &&
-           isCaptureActive() && !m_HostCursorPreferVideo;
+    return m_HostCursorSupported && m_CursorDecision.mode == Mode::Absolute &&
+           isAbsoluteMouseMode() && isCaptureActive() && !m_HostCursorPreferVideo;
 }
 
 bool SdlInputHandler::isHostCursorDrawnLocally()
@@ -189,9 +192,9 @@ void SdlInputHandler::updateHostCursorControl()
         flags |= LI_CURSOR_CONTROL_CLIENT_DRAWS;
     }
 
-    if (flags != m_HostCursorControlSent && LiSendCursorControl((uint8_t)flags, 0) == LI_CURSOR_MODE_OK) {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Host cursor: %s draws the cursor",
+    if (flags != m_HostCursorControlSent &&
+        LiSendCursorControl((uint8_t)flags, 0) == LI_CURSOR_MODE_OK) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host cursor: %s draws the cursor",
                     (flags & LI_CURSOR_CONTROL_CLIENT_DRAWS) ? "client" : "host");
         m_HostCursorControlSent = flags;
 
@@ -205,26 +208,27 @@ void SdlInputHandler::updateHostCursorControl()
 
 void SdlInputHandler::updateLocalCursor(int mouseInVideoRegion)
 {
-    if (!m_HostCursorSupported || !isAbsoluteMouseMode() || !isCaptureActive() || SDL_GetRelativeMouseMode()) {
+    if (!m_HostCursorSupported || !isAbsoluteMouseMode() || !isCaptureActive() ||
+        SDL_GetRelativeMouseMode()) {
         return;
     }
 
     if (mouseInVideoRegion < 0) {
         int mouseX, mouseY;
         SDL_GetMouseState(&mouseX, &mouseY);
-        mouseInVideoRegion = SDL_GetMouseFocus() == m_Window && isMouseInVideoRegion(mouseX, mouseY);
+        mouseInVideoRegion =
+            SDL_GetMouseFocus() == m_Window && isMouseInVideoRegion(mouseX, mouseY);
     }
 
     if (isHostCursorDrawnLocally()) {
         SDL_Cursor* cursor = mouseInVideoRegion ? getHostSdlCursor() : nullptr;
         SDL_SetCursor(cursor != nullptr ? cursor : SDL_GetDefaultCursor());
         SDL_ShowCursor(SDL_ENABLE);
-    }
-    else {
+    } else {
         // In automatic mode the host's cursor (ours or the video's) is the only one
         // over the video. In fallback, "Show local cursor" decides, as on other hosts.
-        const bool showOverVideo = !isAutomaticMouseModeActive() &&
-                                   m_MouseMode == StreamingPreferences::MM_ABSOLUTE_LOCAL;
+        const bool showOverVideo =
+            !isAutomaticMouseModeActive() && m_MouseMode == StreamingPreferences::MM_ABSOLUTE_LOCAL;
         SDL_SetCursor(SDL_GetDefaultCursor());
         SDL_ShowCursor((mouseInVideoRegion && !showOverVideo) ? SDL_DISABLE : SDL_ENABLE);
     }
@@ -235,13 +239,13 @@ void SdlInputHandler::warpToHostCursor(bool modeSwitch)
     // Only move the user's cursor when it is ours to move: the window is focused and,
     // outside a switch back from relative mode, the cursor is over the video.
     if (!m_HostCursorHasPosition || !(SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) ||
-            SDL_GetMouseFocus() != m_Window) {
+        SDL_GetMouseFocus() != m_Window) {
         return;
     }
 
     const LI_CURSOR_STATE& state = m_HostCursorState;
-    if (m_HostCursorX < 0 || m_HostCursorY < 0 ||
-            m_HostCursorX >= state.referenceWidth || m_HostCursorY >= state.referenceHeight) {
+    if (m_HostCursorX < 0 || m_HostCursorY < 0 || m_HostCursorX >= state.referenceWidth ||
+        m_HostCursorY >= state.referenceHeight) {
         // On another host monitor; absolute input cannot follow it there.
         return;
     }
@@ -252,9 +256,9 @@ void SdlInputHandler::warpToHostCursor(bool modeSwitch)
         return;
     }
 
-    HostCursorMath::Point target = HostCursorMath::streamToWindow(toMathRect(getVideoRegion()),
-                                                                  state.referenceWidth, state.referenceHeight,
-                                                                  m_HostCursorX, m_HostCursorY);
+    HostCursorMath::Point target =
+        HostCursorMath::streamToWindow(toMathRect(getVideoRegion()), state.referenceWidth,
+                                       state.referenceHeight, m_HostCursorX, m_HostCursorY);
     if (modeSwitch) {
         // setCaptureActive() syncs the host to this point rather than reading the
         // cursor back, which macOS may not have updated yet.
@@ -272,14 +276,13 @@ bool SdlInputHandler::getHostCursorClipRect(SDL_Rect* rect)
 {
     const LI_CURSOR_STATE& state = m_HostCursorState;
     if (!isHostCursorDrawingWanted() || !(state.flags & LI_CURSOR_STATE_FLAG_HAS_CLIP) ||
-            !m_CursorPolicy.hostClipConfinesCursor(SDL_GetTicks())) {
+        !m_CursorPolicy.hostClipConfinesCursor(SDL_GetTicks())) {
         return false;
     }
 
-    HostCursorMath::Rect clip = HostCursorMath::streamRectToWindow(toMathRect(getVideoRegion()),
-                                                                   state.referenceWidth, state.referenceHeight,
-                                                                   state.clipLeft, state.clipTop,
-                                                                   state.clipRight, state.clipBottom);
+    HostCursorMath::Rect clip = HostCursorMath::streamRectToWindow(
+        toMathRect(getVideoRegion()), state.referenceWidth, state.referenceHeight, state.clipLeft,
+        state.clipTop, state.clipRight, state.clipBottom);
     if (clip.w <= 0 || clip.h <= 0) {
         return false;
     }
@@ -301,8 +304,8 @@ SDL_Cursor* SdlInputHandler::getHostSdlCursor()
 
     // Match the cursor's size in the stream: host shape pixels -> stream pixels ->
     // window units. A new scale (resize, fullscreen, another display) rebuilds them.
-    double scale = HostCursorMath::cursorScale(m_HostCursorState.scaleQ16, toMathRect(getVideoRegion()),
-                                               m_HostCursorState.referenceWidth);
+    double scale = HostCursorMath::cursorScale(
+        m_HostCursorState.scaleQ16, toMathRect(getVideoRegion()), m_HostCursorState.referenceWidth);
     if (scale != m_HostSdlCursorScale) {
         freeHostSdlCursors();
         m_HostSdlCursorScale = scale;
@@ -322,22 +325,21 @@ SDL_Cursor* SdlInputHandler::getHostSdlCursor()
 
 SDL_Cursor* SdlInputHandler::createHostSdlCursor(const HostCursorShape& shape, double scale)
 {
-    const QByteArray bgra = QByteArray::fromRawData(reinterpret_cast<const char*>(shape.pixels.data()),
-                                                    (int)shape.pixels.size());
+    const QByteArray bgra = QByteArray::fromRawData(
+        reinterpret_cast<const char*>(shape.pixels.data()), (int)shape.pixels.size());
 
     // As on the v1 path, a recognised standard shape becomes the client OS cursor
     // (MOONLIGHT_NATIVE_CURSOR=0 draws the host's bitmap instead).
     if (nativeCursorSubstitutionEnabled()) {
         SDL_SystemCursor systemCursor;
-        const NativeCursorShape nativeShape =
-            classifyCursorShape(measureCursorShape(shape.width, shape.height, shape.hotspotX, shape.hotspotY, bgra));
+        const NativeCursorShape nativeShape = classifyCursorShape(
+            measureCursorShape(shape.width, shape.height, shape.hotspotX, shape.hotspotY, bgra));
         if (toSdlSystemCursor(nativeShape, systemCursor)) {
             SDL_Cursor* cursor = SDL_CreateSystemCursor(systemCursor);
             if (cursor != nullptr) {
                 return cursor;
             }
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                        "Failed to create system cursor %d: %s",
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to create system cursor %d: %s",
                         (int)systemCursor, SDL_GetError());
         }
     }
@@ -345,7 +347,8 @@ SDL_Cursor* SdlInputHandler::createHostSdlCursor(const HostCursorShape& shape, d
     const int width = HostCursorMath::scaledDimension(shape.width, scale);
     const int height = HostCursorMath::scaledDimension(shape.height, scale);
     const int hotspotX = qBound(0, qRound((double)shape.hotspotX * width / shape.width), width - 1);
-    const int hotspotY = qBound(0, qRound((double)shape.hotspotY * height / shape.height), height - 1);
+    const int hotspotY =
+        qBound(0, qRound((double)shape.hotspotY * height / shape.height), height - 1);
 
     // Scale in premultiplied space, as the v1 path does, so transparent neighbours do
     // not darken the edges. BGRA bytes are QImage::Format_ARGB32 on little-endian.
@@ -355,17 +358,15 @@ SDL_Cursor* SdlInputHandler::createHostSdlCursor(const HostCursorShape& shape, d
         image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied)
                     .scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
                     .convertToFormat(QImage::Format_ARGB32);
-    }
-    else {
+    } else {
         image = image.copy();
     }
 
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(const_cast<uchar*>(image.constBits()),
-                                                              image.width(), image.height(), 32,
-                                                              image.bytesPerLine(), SDL_PIXELFORMAT_BGRA32);
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+        const_cast<uchar*>(image.constBits()), image.width(), image.height(), 32,
+        image.bytesPerLine(), SDL_PIXELFORMAT_BGRA32);
     if (surface == nullptr) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "SDL_CreateRGBSurfaceWithFormatFrom() failed: %s",
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateRGBSurfaceWithFormatFrom() failed: %s",
                     SDL_GetError());
         return nullptr;
     }
@@ -373,8 +374,7 @@ SDL_Cursor* SdlInputHandler::createHostSdlCursor(const HostCursorShape& shape, d
     SDL_Cursor* cursor = SDL_CreateColorCursor(surface, hotspotX, hotspotY);
     SDL_FreeSurface(surface);
     if (cursor == nullptr) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "SDL_CreateColorCursor() failed: %s",
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateColorCursor() failed: %s",
                     SDL_GetError());
     }
     return cursor;
@@ -434,7 +434,8 @@ void SdlInputHandler::noteMouseButtons()
 void SdlInputHandler::handleHostCursorTick()
 {
     m_CursorModeTimer = 0;
-    if (m_ClientDrawsGraceActive && SDL_TICKS_PASSED(SDL_GetTicks(), m_ClientDrawsSinceMs + HOST_CURSOR_COMPOSITE_GRACE_MS)) {
+    if (m_ClientDrawsGraceActive &&
+        SDL_TICKS_PASSED(SDL_GetTicks(), m_ClientDrawsSinceMs + HOST_CURSOR_COMPOSITE_GRACE_MS)) {
         m_ClientDrawsGraceActive = false;
     }
     evaluateCursorMode();
@@ -472,8 +473,7 @@ void SdlInputHandler::scheduleCursorModeTimer()
             m_CursorModeTimer = SDL_AddTimer(delay, cursorModeTimerCallback, nullptr);
             m_CursorModeTimerDue = due;
         }
-    }
-    else if (m_CursorModeTimer != 0) {
+    } else if (m_CursorModeTimer != 0) {
         SDL_RemoveTimer(m_CursorModeTimer);
         m_CursorModeTimer = 0;
     }
@@ -486,9 +486,8 @@ void SdlInputHandler::evaluateCursorMode()
     m_CursorDecision = m_CursorPolicy.update(now);
 
     if (m_CursorDecision.mode != previous) {
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Mouse mode: %s -> %s (%s)",
-                    modeName(previous), modeName(m_CursorDecision.mode),
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Mouse mode: %s -> %s (%s)", modeName(previous),
+                    modeName(m_CursorDecision.mode),
                     m_CursorDecision.source == Source::Locked ? "locked" : "automatic");
         applyCursorMode(m_CursorDecision.mode, previous);
     }
@@ -512,8 +511,9 @@ void SdlInputHandler::publishMouseModeStatus()
                  (isHostCursorDrawnLocally() ? MMS_LOCAL_CURSOR : 0) |
                  ((int)m_CursorDecision.source << MMS_SOURCE_SHIFT);
         if (m_CursorDecision.source == Source::Fallback) {
-            int reason = !m_HostCursorSupported ? MMFR_HOST_UNSUPPORTED :
-                         !m_HostCursorReady ? MMFR_WAITING_FOR_HOST : MMFR_HOST_UNAVAILABLE;
+            int reason = !m_HostCursorSupported ? MMFR_HOST_UNSUPPORTED
+                         : !m_HostCursorReady   ? MMFR_WAITING_FOR_HOST
+                                                : MMFR_HOST_UNAVAILABLE;
             status |= reason << MMS_REASON_SHIFT;
         }
     }
@@ -525,8 +525,9 @@ void SdlInputHandler::applyCursorMode(Mode mode, Mode previous)
     // Automatic absolute input always draws the host's cursor locally (unless
     // Ctrl+Alt+Shift+C hands it to the video); fallback restores the user's mode.
     const StreamingPreferences::MouseMode target =
-        mode == Mode::Absolute ? StreamingPreferences::MM_ABSOLUTE_LOCAL :
-        mode == Mode::Relative ? StreamingPreferences::MM_RELATIVE : m_FallbackMouseMode;
+        mode == Mode::Absolute   ? StreamingPreferences::MM_ABSOLUTE_LOCAL
+        : mode == Mode::Relative ? StreamingPreferences::MM_RELATIVE
+                                 : m_FallbackMouseMode;
     const bool absolute = StreamingPreferences::isAbsoluteMouseMode(target);
     const bool focused = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) != 0;
 
@@ -561,8 +562,7 @@ void SdlInputHandler::applyCursorMode(Mode mode, Mode previous)
             setCaptureActive(true);
         }
         m_HasAbsoluteSyncPoint = false;
-    }
-    else {
+    } else {
         m_MouseMode = target;
     }
 
@@ -619,18 +619,21 @@ void SdlInputHandler::handleHostCursorState(const LI_CURSOR_STATE* state)
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host cursor: received the initial state");
         }
         m_HostCursorReady = true;
-    }
-    else if (!m_HostCursorReady) {
+    } else if (!m_HostCursorReady) {
         // Nothing is trusted before the host's full resync.
         return;
     }
 
     // Confinement depends on the clip and on whether the cursor is visible.
     const bool confinementMayChange =
-        (state->flags & LI_CURSOR_STATE_FLAG_HAS_CLIP) != (m_HostCursorState.flags & LI_CURSOR_STATE_FLAG_HAS_CLIP) ||
-        (state->flags & LI_CURSOR_STATE_FLAG_VISIBLE) != (m_HostCursorState.flags & LI_CURSOR_STATE_FLAG_VISIBLE) ||
-        state->clipLeft != m_HostCursorState.clipLeft || state->clipTop != m_HostCursorState.clipTop ||
-        state->clipRight != m_HostCursorState.clipRight || state->clipBottom != m_HostCursorState.clipBottom;
+        (state->flags & LI_CURSOR_STATE_FLAG_HAS_CLIP) !=
+            (m_HostCursorState.flags & LI_CURSOR_STATE_FLAG_HAS_CLIP) ||
+        (state->flags & LI_CURSOR_STATE_FLAG_VISIBLE) !=
+            (m_HostCursorState.flags & LI_CURSOR_STATE_FLAG_VISIBLE) ||
+        state->clipLeft != m_HostCursorState.clipLeft ||
+        state->clipTop != m_HostCursorState.clipTop ||
+        state->clipRight != m_HostCursorState.clipRight ||
+        state->clipBottom != m_HostCursorState.clipBottom;
     m_HostCursorState = *state;
     if (state->flags & LI_CURSOR_STATE_FLAG_HAS_POSITION) {
         m_HostCursorHasPosition = true;
@@ -641,12 +644,15 @@ void SdlInputHandler::handleHostCursorState(const LI_CURSOR_STATE* state)
     const Uint32 now = SDL_GetTicks();
     const bool visible = state->flags & LI_CURSOR_STATE_FLAG_VISIBLE;
     // The parser guarantees an ordered clip, not a small one: subtract in 64 bits.
-    const int clipWidth = (int)std::clamp<int64_t>((int64_t)state->clipRight - state->clipLeft, 0, INT_MAX);
-    const int clipHeight = (int)std::clamp<int64_t>((int64_t)state->clipBottom - state->clipTop, 0, INT_MAX);
+    const int clipWidth =
+        (int)std::clamp<int64_t>((int64_t)state->clipRight - state->clipLeft, 0, INT_MAX);
+    const int clipHeight =
+        (int)std::clamp<int64_t>((int64_t)state->clipBottom - state->clipTop, 0, INT_MAX);
     m_CursorPolicy.setHostState(!(state->flags & LI_CURSOR_STATE_FLAG_FALLBACK), visible,
                                 state->flags & LI_CURSOR_STATE_FLAG_HAS_CLIP, clipWidth, clipHeight,
                                 state->referenceWidth, state->referenceHeight);
-    if (visible && (state->flags & LI_CURSOR_STATE_FLAG_HAS_POSITION) && !(state->flags & LI_CURSOR_STATE_FLAG_RESYNC)) {
+    if (visible && (state->flags & LI_CURSOR_STATE_FLAG_HAS_POSITION) &&
+        !(state->flags & LI_CURSOR_STATE_FLAG_RESYNC)) {
         m_CursorPolicy.noteHostPosition(now, state->x, state->y);
     }
     evaluateCursorMode();
@@ -654,8 +660,9 @@ void SdlInputHandler::handleHostCursorState(const LI_CURSOR_STATE* state)
     // A state may name a shape we never received (or evicted); ask for it again.
     if (state->shapeId != 0 && !m_HostCursorShapes.contains(state->shapeId)) {
         if (state->shapeId != m_HostCursorResendId ||
-                SDL_TICKS_PASSED(now, m_HostCursorResendTime + HOST_CURSOR_RESEND_INTERVAL_MS)) {
-            int flags = m_HostCursorControlSent >= 0 ? m_HostCursorControlSent : LI_CURSOR_CONTROL_SUBSCRIBE;
+            SDL_TICKS_PASSED(now, m_HostCursorResendTime + HOST_CURSOR_RESEND_INTERVAL_MS)) {
+            int flags = m_HostCursorControlSent >= 0 ? m_HostCursorControlSent
+                                                     : LI_CURSOR_CONTROL_SUBSCRIBE;
             LiSendCursorControl((uint8_t)flags, state->shapeId);
             m_HostCursorResendId = state->shapeId;
             m_HostCursorResendTime = now;
@@ -673,14 +680,13 @@ void SdlInputHandler::handleHostCursorState(const LI_CURSOR_STATE* state)
     // the warp's motion event would be the first motion, switching to relative and
     // sending the warp distance to the game as a mouse move.
     if ((state->flags & LI_CURSOR_STATE_FLAG_HAS_POSITION) && isHostCursorDrawnLocally() &&
-            !m_CursorPolicy.hostWantsRelative(now)) {
+        !m_CursorPolicy.hostWantsRelative(now)) {
         warpToHostCursor();
     }
 
     if (confinementMayChange) {
         updatePointerRegionLock();
-    }
-    else {
+    } else {
         updateLocalCursor();
     }
 }

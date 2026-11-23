@@ -10,7 +10,8 @@
 
 namespace HostCursorMath {
 
-struct Rect {
+struct Rect
+{
     int x = 0;
     int y = 0;
     int w = 0;
@@ -22,7 +23,8 @@ struct Rect {
     }
 };
 
-struct Point {
+struct Point
+{
     int x = 0;
     int y = 0;
 };
@@ -30,7 +32,8 @@ struct Point {
 // Inverse of the absolute mouse mapping in mouse.cpp: the host receives
 // (windowX - video.x) on a video.w-wide reference plane, which it scales to the
 // stream's referenceWidth. `video` is the letterboxed region in window units.
-inline Point streamToWindow(const Rect& video, int referenceWidth, int referenceHeight, int32_t x, int32_t y)
+inline Point streamToWindow(const Rect& video, int referenceWidth, int referenceHeight, int32_t x,
+                            int32_t y)
 {
     Point p;
     if (referenceWidth <= 0 || referenceHeight <= 0) {
@@ -38,8 +41,10 @@ inline Point streamToWindow(const Rect& video, int referenceWidth, int reference
     }
     // Host coordinates are int32 and may be far off the stream; keep the result in int range.
     const double limit = 1e9;
-    p.x = video.x + (int)std::lround(std::clamp((double)x * video.w / referenceWidth, -limit, limit));
-    p.y = video.y + (int)std::lround(std::clamp((double)y * video.h / referenceHeight, -limit, limit));
+    p.x =
+        video.x + (int)std::lround(std::clamp((double)x * video.w / referenceWidth, -limit, limit));
+    p.y = video.y +
+          (int)std::lround(std::clamp((double)y * video.h / referenceHeight, -limit, limit));
     return p;
 }
 

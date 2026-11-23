@@ -167,7 +167,7 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
     // input before it is sent, so the game gets it as relative motion. Not in an
     // unfocused window, where relative input would wait for a click.
     if (m_HostCursorSupported && (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_INPUT_FOCUS) &&
-            m_CursorPolicy.noteLocalMouseMotion(SDL_GetTicks())) {
+        m_CursorPolicy.noteLocalMouseMotion(SDL_GetTicks())) {
         evaluateCursorMode();
         if (!isCaptureActive()) {
             return;
@@ -221,11 +221,11 @@ void SdlInputHandler::handleMouseMotionEvent(SDL_MouseMotionEvent* event)
             if (m_HostCursorSupported) {
                 // The host's cursor inside the video, the normal cursor outside it
                 updateLocalCursor(mouseInVideoRegion);
-            }
-            else {
-                SDL_ShowCursor((mouseInVideoRegion &&
-                                getCapturedCursorVisibilityState() == SDL_DISABLE) ?
-                                   SDL_DISABLE : SDL_ENABLE);
+            } else {
+                SDL_ShowCursor(
+                    (mouseInVideoRegion && getCapturedCursorVisibilityState() == SDL_DISABLE)
+                        ? SDL_DISABLE
+                        : SDL_ENABLE);
             }
             if (!mouseInVideoRegion && buttonState != 0) {
                 // If we still have a button pressed on leave, wait for that to come up

@@ -27,12 +27,12 @@ static int windowToStream(const Rect& video, int reference, int windowX, bool ho
 static void testStreamToWindowInvertsAbsoluteInput()
 {
     // 1920x1080 stream scaled into a 2560x1440 window: no bars, 4:3 scale.
-    const Rect fullscreen { 0, 0, 2560, 1440 };
+    const Rect fullscreen{ 0, 0, 2560, 1440 };
     Point p = streamToWindow(fullscreen, 1920, 1080, 960, 540);
     require(p.x == 1280 && p.y == 720, "centre of a scaled stream");
 
     // 1920x1080 stream letterboxed in a 1000x1000 window: 1000x563 video, 219 px bars.
-    const Rect letterboxed { 0, 219, 1000, 563 };
+    const Rect letterboxed{ 0, 219, 1000, 563 };
     p = streamToWindow(letterboxed, 1920, 1080, 0, 0);
     require(p.x == 0 && p.y == 219, "letterbox top-left");
     p = streamToWindow(letterboxed, 1920, 1080, 1920, 1080);
@@ -55,7 +55,7 @@ static void testStreamToWindowInvertsAbsoluteInput()
 
 static void testClipRectIsClampedToTheVideo()
 {
-    const Rect video { 100, 50, 960, 540 };  // 1920x1080 stream at half size
+    const Rect video{ 100, 50, 960, 540 }; // 1920x1080 stream at half size
     Rect r = streamRectToWindow(video, 1920, 1080, 200, 100, 1000, 700);
     require(r.x == 200 && r.y == 100 && r.w == 400 && r.h == 300, "clip maps to window units");
 
@@ -68,15 +68,16 @@ static void testClipRectIsClampedToTheVideo()
 
 static void testCursorScale()
 {
-    const Rect video { 0, 0, 2560, 1440 };
+    const Rect video{ 0, 0, 2560, 1440 };
     // Host stream at 0.75 stream px per desktop px, shown at 4/3: the cursor keeps its host size.
     double s = cursorScale(49152, video, 1920);
     require(std::abs(s - 1.0) < 1e-9, "scale composes host and window factors");
 
     // macOS window units are points: a 2560x1440 stream in a 1280-point-wide window
     // draws a 32 px host cursor at 16 points, 32 Retina pixels, as in the video.
-    const Rect retina { 0, 0, 1280, 720 };
-    require(scaledDimension(32, cursorScale(0x10000, retina, 2560)) == 16, "point-sized cursor on a Retina window");
+    const Rect retina{ 0, 0, 1280, 720 };
+    require(scaledDimension(32, cursorScale(0x10000, retina, 2560)) == 16,
+            "point-sized cursor on a Retina window");
 
     require(cursorScale(0x10000, video, 0) == 1.0, "zero reference falls back to 1");
     require(cursorScale(0, video, 1920) == 1.0, "zero scale falls back to 1");

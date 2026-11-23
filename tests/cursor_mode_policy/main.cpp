@@ -46,7 +46,8 @@ static void testFallbackUntilAvailable()
 {
     Policy p;
     Decision d = p.update(0);
-    require(d.mode == Mode::Fallback && d.source == Source::Fallback && d.nextUpdateMs == 0, "no host state is fallback");
+    require(d.mode == Mode::Fallback && d.source == Source::Fallback && d.nextUpdateMs == 0,
+            "no host state is fallback");
     require(!p.noteLocalMouseMotion(0), "motion in fallback needs no update");
 
     p.setHostState(false, true, false, 0, 0, kWidth, kHeight);
@@ -57,7 +58,8 @@ static void testFallbackUntilAvailable()
     // input in progress to keep.
     host(p, false);
     d = p.update(20);
-    require(d.mode == Mode::Relative && d.source == Source::Automatic, "first state hidden -> relative now");
+    require(d.mode == Mode::Relative && d.source == Source::Automatic,
+            "first state hidden -> relative now");
 
     Policy q;
     host(q, true);
@@ -69,7 +71,8 @@ static void testRelativeOnFirstMotion()
     Policy p = readyAbsolute();
     host(p, false);
     Decision d = p.update(1000);
-    require(d.mode == Mode::Absolute && d.nextUpdateMs == 0, "hidden, mouse still: nothing to send yet");
+    require(d.mode == Mode::Absolute && d.nextUpdateMs == 0,
+            "hidden, mouse still: nothing to send yet");
     require(p.update(9000).mode == Mode::Absolute, "however long the mouse stays still");
 
     require(p.noteLocalMouseMotion(9000), "the first motion asks for an update");
@@ -99,10 +102,12 @@ static void testAwaitingRelative()
     require(!p.awaitingRelative(0) && !p.hostWantsRelative(0), "visible cursor: nothing pending");
     host(p, false);
     p.update(100);
-    require(p.awaitingRelative(100) && p.hostWantsRelative(100), "hidden, mouse still: awaiting relative");
+    require(p.awaitingRelative(100) && p.hostWantsRelative(100),
+            "hidden, mouse still: awaiting relative");
     p.noteLocalMouseMotion(200);
     p.update(200);
-    require(!p.awaitingRelative(200) && p.hostWantsRelative(200), "relative now: no longer awaiting");
+    require(!p.awaitingRelative(200) && p.hostWantsRelative(200),
+            "relative now: no longer awaiting");
 
     // A lock to absolute, or fallback, never awaits relative.
     Policy q = readyAbsolute();
@@ -132,7 +137,8 @@ static void testFollowsEveryChange()
     require(p.update(1000).mode == Mode::Absolute, "flash shown");
     host(p, false);
     p.update(1005);
-    require(p.noteLocalMouseMotion(1006) && p.update(1006).mode == Mode::Relative, "flash hidden, next motion relative");
+    require(p.noteLocalMouseMotion(1006) && p.update(1006).mode == Mode::Relative,
+            "flash hidden, next motion relative");
 
     // Every hide with motion and every show switches once.
     Policy q = readyAbsolute();
@@ -160,7 +166,8 @@ static void testHeldButtonDefersReturnToAbsolute()
     p.setMouseButtonsHeld(true);
     host(p, true);
     Decision d = p.update(1000);
-    require(d.mode == Mode::Relative && d.nextUpdateMs == 0, "no return to absolute while a button is held");
+    require(d.mode == Mode::Relative && d.nextUpdateMs == 0,
+            "no return to absolute while a button is held");
     require(p.update(5000).mode == Mode::Relative, "however long it is held");
     p.setMouseButtonsHeld(false);
     require(p.update(5001).mode == Mode::Absolute, "released: absolute at once");
@@ -170,7 +177,8 @@ static void testHeldButtonDefersReturnToAbsolute()
     q.setMouseButtonsHeld(true);
     host(q, false);
     q.update(1000);
-    require(q.noteLocalMouseMotion(1001) && q.update(1001).mode == Mode::Relative, "relative while a button is held");
+    require(q.noteLocalMouseMotion(1001) && q.update(1001).mode == Mode::Relative,
+            "relative while a button is held");
 }
 
 static void testClips()
@@ -179,24 +187,28 @@ static void testClips()
     Policy p = readyAbsolute();
     host(p, true, 800, 600);
     p.update(1000);
-    require(!p.noteLocalMouseMotion(1000) && p.update(5000).mode == Mode::Absolute, "large clip stays absolute");
+    require(!p.noteLocalMouseMotion(1000) && p.update(5000).mode == Mode::Absolute,
+            "large clip stays absolute");
 
     // A visible cursor clipped to a tiny rect is locked.
     host(p, true, 40, 40);
     p.update(6000);
-    require(p.noteLocalMouseMotion(6001) && p.update(6001).mode == Mode::Relative, "tiny clip -> relative");
+    require(p.noteLocalMouseMotion(6001) && p.update(6001).mode == Mode::Relative,
+            "tiny clip -> relative");
 
     // Narrow in one dimension only is not a lock.
     Policy q = readyAbsolute();
     host(q, true, 1920, 20);
     q.update(1000);
-    require(!q.noteLocalMouseMotion(1000) && q.update(5000).mode == Mode::Absolute, "a clip tiny in one dimension only stays absolute");
+    require(!q.noteLocalMouseMotion(1000) && q.update(5000).mode == Mode::Absolute,
+            "a clip tiny in one dimension only stays absolute");
 
     // A clip that misses the stream entirely (empty) is a lock.
     Policy r = readyAbsolute();
     host(r, true, 0, 0);
     r.update(1000);
-    require(r.noteLocalMouseMotion(1001) && r.update(1001).mode == Mode::Relative, "empty clip -> relative");
+    require(r.noteLocalMouseMotion(1001) && r.update(1001).mode == Mode::Relative,
+            "empty clip -> relative");
 }
 
 static void testClipConfinement()
@@ -226,23 +238,29 @@ static void testRecentring()
     // The host keeps putting a visible cursor back at the centre.
     p.noteHostPosition(1000, 960, 540);
     p.noteHostPosition(1016, 961, 540);
-    require(!p.noteLocalMouseMotion(1016) && p.update(1016).nextUpdateMs == 0, "two returns are not recentring");
+    require(!p.noteLocalMouseMotion(1016) && p.update(1016).nextUpdateMs == 0,
+            "two returns are not recentring");
     p.noteHostPosition(1033, 960, 541);
     Decision d = p.update(1033);
-    require(d.mode == Mode::Absolute && d.nextUpdateMs == 1000 + kRecentreWindowMs + 1, "three returns: recentring until the oldest ages out");
-    require(p.noteLocalMouseMotion(1040) && p.update(1040).mode == Mode::Relative, "recentred cursor -> relative on motion");
+    require(d.mode == Mode::Absolute && d.nextUpdateMs == 1000 + kRecentreWindowMs + 1,
+            "three returns: recentring until the oldest ages out");
+    require(p.noteLocalMouseMotion(1040) && p.update(1040).mode == Mode::Relative,
+            "recentred cursor -> relative on motion");
 
     // Recentring stops when the oldest of the three reports ages out.
     d = p.update(1100);
-    require(d.mode == Mode::Relative && d.nextUpdateMs == 1000 + kRecentreWindowMs + 1, "timer for the recentring to expire");
-    require(p.update(1000 + kRecentreWindowMs + 1).mode == Mode::Absolute, "free again -> absolute at once");
+    require(d.mode == Mode::Relative && d.nextUpdateMs == 1000 + kRecentreWindowMs + 1,
+            "timer for the recentring to expire");
+    require(p.update(1000 + kRecentreWindowMs + 1).mode == Mode::Absolute,
+            "free again -> absolute at once");
 
     // Reports that wander (a cursor moving slowly) are not recentring.
     Policy q = readyAbsolute();
     for (int i = 0; i < 10; i++) {
         q.noteHostPosition(1000 + i * 20, 900 + i * 6, 500);
     }
-    require(!q.noteLocalMouseMotion(1200) && q.update(1200).nextUpdateMs == 0, "slow movement is not recentring");
+    require(!q.noteLocalMouseMotion(1200) && q.update(1200).nextUpdateMs == 0,
+            "slow movement is not recentring");
 }
 
 static void testLocks()
@@ -250,7 +268,8 @@ static void testLocks()
     Policy p = readyAbsolute();
     p.lock(Mode::Relative);
     Decision d = p.update(10);
-    require(d.mode == Mode::Relative && d.source == Source::Locked && d.nextUpdateMs == 0, "lock applies at once");
+    require(d.mode == Mode::Relative && d.source == Source::Locked && d.nextUpdateMs == 0,
+            "lock applies at once");
     host(p, true);
     require(p.update(5000).mode == Mode::Relative, "lock ignores the host");
 
@@ -262,14 +281,16 @@ static void testLocks()
 
     p.unlock();
     d = p.update(7001);
-    require(d.mode == Mode::Absolute && d.source == Source::Automatic, "unlocked: the host's mode at once");
+    require(d.mode == Mode::Absolute && d.source == Source::Automatic,
+            "unlocked: the host's mode at once");
 
     // Locked absolute while the host hides its cursor: motion never switches.
     Policy q = readyAbsolute();
     q.lock(Mode::Absolute);
     host(q, false);
     q.update(1000);
-    require(!q.noteLocalMouseMotion(1001) && q.update(1001).mode == Mode::Absolute, "locked absolute ignores motion");
+    require(!q.noteLocalMouseMotion(1001) && q.update(1001).mode == Mode::Absolute,
+            "locked absolute ignores motion");
 }
 
 static void testTickWrap()
@@ -282,9 +303,12 @@ static void testTickWrap()
     p.noteHostPosition(start + 16, 960, 540);
     Decision d = p.update(start + 16);
     require(d.nextUpdateMs == (uint32_t)(start + kRecentreWindowMs + 1), "expiry wraps");
-    require(p.noteLocalMouseMotion(start + 20) && p.update(start + 20).mode == Mode::Relative, "relative across the wrap");
-    require(p.update((uint32_t)(start + kRecentreWindowMs)).mode == Mode::Relative, "not expired across the wrap");
-    require(p.update((uint32_t)(start + kRecentreWindowMs + 1)).mode == Mode::Absolute, "expired across the wrap");
+    require(p.noteLocalMouseMotion(start + 20) && p.update(start + 20).mode == Mode::Relative,
+            "relative across the wrap");
+    require(p.update((uint32_t)(start + kRecentreWindowMs)).mode == Mode::Relative,
+            "not expired across the wrap");
+    require(p.update((uint32_t)(start + kRecentreWindowMs + 1)).mode == Mode::Absolute,
+            "expired across the wrap");
 }
 
 int main()

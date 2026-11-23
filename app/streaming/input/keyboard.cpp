@@ -77,8 +77,9 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
 
         if (isAutomaticMouseModeActive()) {
             // In automatic mode, switch to the other mode and keep it until unlocked
-            m_CursorPolicy.lock(m_CursorDecision.mode == CursorModePolicy::Mode::Absolute ?
-                                    CursorModePolicy::Mode::Relative : CursorModePolicy::Mode::Absolute);
+            m_CursorPolicy.lock(m_CursorDecision.mode == CursorModePolicy::Mode::Absolute
+                                    ? CursorModePolicy::Mode::Relative
+                                    : CursorModePolicy::Mode::Absolute);
             evaluateCursorMode();
             showAutomaticMouseModeNotification();
             break;
@@ -102,16 +103,13 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
     }
 
     case KeyComboToggleMouseModeLock:
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Detected mouse mode lock combo");
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Detected mouse mode lock combo");
 
         if (m_CursorPolicy.isLocked()) {
             m_CursorPolicy.unlock();
-        }
-        else if (isAutomaticMouseModeActive()) {
+        } else if (isAutomaticMouseModeActive()) {
             m_CursorPolicy.lock(m_CursorDecision.mode);
-        }
-        else {
+        } else {
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                         "Automatic mouse mode is not active for this session");
             break;
@@ -128,17 +126,16 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
             // Automatic mode draws the host's cursor locally; this hands it to the
             // video for the session, and back.
             m_HostCursorPreferVideo = !m_HostCursorPreferVideo;
-            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                        "Host cursor drawn by the %s",
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host cursor drawn by the %s",
                         m_HostCursorPreferVideo ? "host in the video" : "client");
             updateHostCursorControl();
             updateLocalCursor();
             publishMouseModeStatus();
             if (Session* session = Session::get()) {
-                session->showStreamingToast(MouseModeStatus::cursorMode(!m_HostCursorPreferVideo), 2000);
+                session->showStreamingToast(MouseModeStatus::cursorMode(!m_HostCursorPreferVideo),
+                                            2000);
             }
-        }
-        else if (isAbsoluteMouseMode()) {
+        } else if (isAbsoluteMouseMode()) {
             m_MouseMode = StreamingPreferences::toggleMouseCursorMode(m_MouseMode);
             m_LastAbsoluteMouseMode = m_MouseMode;
             m_FallbackMouseMode = m_MouseMode;

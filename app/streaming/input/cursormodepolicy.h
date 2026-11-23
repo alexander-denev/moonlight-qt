@@ -24,19 +24,22 @@ constexpr int kRecentreReports = 3;
 constexpr double kRecentreToleranceFraction = 0.002;
 constexpr int kRecentreToleranceMinPixels = 2;
 
-enum class Mode {
-    Fallback,   // the user's regular mouse setting; the cursor is in the video
-    Absolute,   // absolute input with the host cursor drawn locally
-    Relative,   // relative input; the local cursor is hidden
+enum class Mode
+{
+    Fallback, // the user's regular mouse setting; the cursor is in the video
+    Absolute, // absolute input with the host cursor drawn locally
+    Relative, // relative input; the local cursor is hidden
 };
 
-enum class Source {
-    Fallback,   // automatic mode unavailable (unsupported host, host fallback, no state yet)
+enum class Source
+{
+    Fallback, // automatic mode unavailable (unsupported host, host fallback, no state yet)
     Automatic,
-    Locked,     // the user locked a mode for the rest of the session
+    Locked, // the user locked a mode for the rest of the session
 };
 
-struct Decision {
+struct Decision
+{
     Mode mode;
     Source source;
     // Absolute time at which update() must run again even without new input, or 0.
@@ -53,12 +56,12 @@ struct Decision {
 // - Absolute input returns as soon as the host cursor is visible and free, except
 //   while a mouse button is held: a game may show its cursor before a camera drag
 //   ends, and switching mid-drag turns the rest of the drag into a jump.
-class Policy {
+class Policy
+{
 public:
     // The latest host state. `available` is false until the host's first full state
     // and while it reports FALLBACK. Clip sizes are in stream pixels.
-    void setHostState(bool available, bool visible,
-                      bool hasClip, int clipWidth, int clipHeight,
+    void setHostState(bool available, bool visible, bool hasClip, int clipWidth, int clipHeight,
                       int referenceWidth, int referenceHeight)
     {
         m_Available = available;
@@ -112,10 +115,7 @@ public:
     }
 
     // Call update() again when the buttons come up.
-    void setMouseButtonsHeld(bool held)
-    {
-        m_ButtonsHeld = held;
-    }
+    void setMouseButtonsHeld(bool held) { m_ButtonsHeld = held; }
 
     void lock(Mode mode)
     {
@@ -123,20 +123,11 @@ public:
         m_LockedMode = mode;
     }
 
-    void unlock()
-    {
-        m_Locked = false;
-    }
+    void unlock() { m_Locked = false; }
 
-    bool isLocked() const
-    {
-        return m_Locked;
-    }
+    bool isLocked() const { return m_Locked; }
 
-    Mode mode() const
-    {
-        return m_Mode;
-    }
+    Mode mode() const { return m_Mode; }
 
     Decision update(uint32_t nowMs)
     {
@@ -159,13 +150,11 @@ public:
             // Leaving fallback (the first host state, a host fallback ending) there is
             // no absolute input in progress to keep, so take the host's state as it is.
             m_Mode = relative ? Mode::Relative : Mode::Absolute;
-        }
-        else if (relative && m_Mode == Mode::Absolute) {
+        } else if (relative && m_Mode == Mode::Absolute) {
             if (m_Moved) {
                 m_Mode = Mode::Relative;
             }
-        }
-        else if (!relative && m_Mode == Mode::Relative && !m_ButtonsHeld) {
+        } else if (!relative && m_Mode == Mode::Relative && !m_ButtonsHeld) {
             m_Mode = Mode::Absolute;
         }
 
@@ -176,7 +165,8 @@ public:
     }
 
 private:
-    struct Report {
+    struct Report
+    {
         uint32_t atMs;
         int x;
         int y;
@@ -184,23 +174,19 @@ private:
     };
 
     // Timestamps wrap (SDL_GetTicks() is 32-bit); compare by signed difference.
-    static bool reached(uint32_t nowMs, uint32_t dueMs)
-    {
-        return (int32_t)(nowMs - dueMs) >= 0;
-    }
+    static bool reached(uint32_t nowMs, uint32_t dueMs) { return (int32_t)(nowMs - dueMs) >= 0; }
 
-    static uint32_t latest(uint32_t a, uint32_t b)
-    {
-        return reached(a, b) ? a : b;
-    }
+    static uint32_t latest(uint32_t a, uint32_t b) { return reached(a, b) ? a : b; }
 
     bool tightlyClipped() const
     {
         if (!m_HasClip) {
             return false;
         }
-        const int maxWidth = (std::max)(kTightClipMinPixels, (int)(m_ReferenceWidth * kTightClipFraction));
-        const int maxHeight = (std::max)(kTightClipMinPixels, (int)(m_ReferenceHeight * kTightClipFraction));
+        const int maxWidth =
+            (std::max)(kTightClipMinPixels, (int)(m_ReferenceWidth * kTightClipFraction));
+        const int maxHeight =
+            (std::max)(kTightClipMinPixels, (int)(m_ReferenceHeight * kTightClipFraction));
         return m_ClipWidth < maxWidth && m_ClipHeight < maxHeight;
     }
 
@@ -209,24 +195,27 @@ private:
     bool recentring(uint32_t nowMs, uint32_t& expiry) const
     {
         const int tolerance = (std::max)(kRecentreToleranceMinPixels,
-                                       (int)((std::max)(m_ReferenceWidth, m_ReferenceHeight) * kRecentreToleranceFraction));
+                                         (int)((std::max)(m_ReferenceWidth, m_ReferenceHeight) *
+                                               kRecentreToleranceFraction));
         bool found = false;
         for (const Report& anchor : m_Reports) {
             if (!anchor.valid || nowMs - anchor.atMs > kRecentreWindowMs) {
                 continue;
             }
-            std::array<uint32_t, 16> ages {};
+            std::array<uint32_t, 16> ages{};
             int count = 0;
             for (const Report& r : m_Reports) {
                 if (r.valid && nowMs - r.atMs <= kRecentreWindowMs &&
-                        std::abs(r.x - anchor.x) <= tolerance && std::abs(r.y - anchor.y) <= tolerance) {
+                    std::abs(r.x - anchor.x) <= tolerance &&
+                    std::abs(r.y - anchor.y) <= tolerance) {
                     ages[count++] = nowMs - r.atMs;
                 }
             }
             if (count >= kRecentreReports) {
                 // True until the kRecentreReports-th newest of these reports ages out.
                 std::sort(ages.begin(), ages.begin() + count);
-                const uint32_t candidate = nowMs + (kRecentreWindowMs - ages[kRecentreReports - 1]) + 1;
+                const uint32_t candidate =
+                    nowMs + (kRecentreWindowMs - ages[kRecentreReports - 1]) + 1;
                 expiry = found ? latest(expiry, candidate) : candidate;
                 found = true;
             }
@@ -251,11 +240,11 @@ private:
     int m_ReferenceWidth = 0;
     int m_ReferenceHeight = 0;
 
-    std::array<Report, 16> m_Reports {};
+    std::array<Report, 16> m_Reports{};
     size_t m_NextReport = 0;
 
     bool m_ButtonsHeld = false;
-    bool m_Moved = false;   // the mouse moved while the host wanted relative input
+    bool m_Moved = false; // the mouse moved while the host wanted relative input
 
     bool m_Locked = false;
     Mode m_LockedMode = Mode::Absolute;

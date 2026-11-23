@@ -138,15 +138,15 @@ SdlInputHandler::SdlInputHandler(StreamingPreferences& prefs, int streamWidth, i
       m_WindowsTouchpadHeightMm(0),
 #endif
       m_LeftButtonReleaseTimer(0), m_RightButtonReleaseTimer(0), m_DragTimer(0), m_DragButton(0),
-      m_NumFingersDown(0),
-      m_HostCursorSupported(false), m_HostCursorReady(false), m_HostCursorHasPosition(false),
-      m_HostCursorX(0), m_HostCursorY(0), m_HostCursorControlSent(-1), m_HostCursorResendId(0),
-      m_HostCursorResendTime(0), m_HostSdlCursorScale(0), m_HostCursorPreferVideo(false),
-      m_AutomaticMouseMode(prefs.automaticMouseMode),
-      m_FallbackMouseMode(prefs.mouseMode), m_AutomaticCaptureDone(false),
-      m_CursorDecision { CursorModePolicy::Mode::Fallback, CursorModePolicy::Source::Fallback, 0 },
+      m_NumFingersDown(0), m_HostCursorSupported(false), m_HostCursorReady(false),
+      m_HostCursorHasPosition(false), m_HostCursorX(0), m_HostCursorY(0),
+      m_HostCursorControlSent(-1), m_HostCursorResendId(0), m_HostCursorResendTime(0),
+      m_HostSdlCursorScale(0), m_HostCursorPreferVideo(false),
+      m_AutomaticMouseMode(prefs.automaticMouseMode), m_FallbackMouseMode(prefs.mouseMode),
+      m_AutomaticCaptureDone(false),
+      m_CursorDecision{ CursorModePolicy::Mode::Fallback, CursorModePolicy::Source::Fallback, 0 },
       m_CursorModeTimer(0), m_CursorModeTimerDue(0), m_ClientDrawsGraceActive(false),
-      m_ClientDrawsSinceMs(0), m_HasAbsoluteSyncPoint(false), m_AbsoluteSyncPoint { 0, 0 }
+      m_ClientDrawsSinceMs(0), m_HasAbsoluteSyncPoint(false), m_AbsoluteSyncPoint{ 0, 0 }
 {
     SDL_zero(m_HostCursorState);
 
@@ -951,8 +951,7 @@ void SdlInputHandler::setCaptureActive(bool active)
                 mouseX = m_AbsoluteSyncPoint.x;
                 mouseY = m_AbsoluteSyncPoint.y;
                 m_HasAbsoluteSyncPoint = false;
-            }
-            else {
+            } else {
                 // We have to use SDL_GetGlobalMouseState() because macOS may not reflect
                 // the new position of the mouse when outside the window.
                 SDL_GetGlobalMouseState(&mouseX, &mouseY);

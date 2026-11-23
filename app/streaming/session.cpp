@@ -874,10 +874,13 @@ void Session::clCursorState(const LI_CURSOR_STATE* state)
     // Called on the control receive thread. Log transitions, not every position update.
     static uint8_t lastFlags = 0xFF;
     static uint32_t lastShapeId;
-    const uint8_t flags = state->flags & ~(LI_CURSOR_STATE_FLAG_HAS_POSITION | LI_CURSOR_STATE_FLAG_RESYNC);
-    if ((state->flags & LI_CURSOR_STATE_FLAG_RESYNC) || flags != lastFlags || state->shapeId != lastShapeId) {
+    const uint8_t flags =
+        state->flags & ~(LI_CURSOR_STATE_FLAG_HAS_POSITION | LI_CURSOR_STATE_FLAG_RESYNC);
+    if ((state->flags & LI_CURSOR_STATE_FLAG_RESYNC) || flags != lastFlags ||
+        state->shapeId != lastShapeId) {
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Host cursor state %u: flags 0x%02x, shape %u, position %d,%d, reference %ux%u, scale %.3f, clip %d,%d-%d,%d",
+                    "Host cursor state %u: flags 0x%02x, shape %u, position %d,%d, reference "
+                    "%ux%u, scale %.3f, clip %d,%d-%d,%d",
                     state->sequence, state->flags, state->shapeId, state->x, state->y,
                     state->referenceWidth, state->referenceHeight, state->scaleQ16 / 65536.0,
                     state->clipLeft, state->clipTop, state->clipRight, state->clipBottom);
@@ -903,8 +906,7 @@ void Session::clCursorState(const LI_CURSOR_STATE* state)
 
 void Session::clCursorShape(const LI_CURSOR_SHAPE* shape)
 {
-    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                "Host cursor shape %u: %ux%u, hotspot %u,%u",
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Host cursor shape %u: %ux%u, hotspot %u,%u",
                 shape->shapeId, shape->width, shape->height, shape->hotspotX, shape->hotspotY);
 
     // One allocation: the shape header followed by its pixels, freed by the main thread.
@@ -2371,7 +2373,6 @@ bool Session::validateLaunch(SDL_Window* testWindow)
 
     return true;
 }
-
 
 // Host cursor events pushed after the event loop stopped would otherwise leak their
 // payloads or reach the next session; SDL_FilterEvents() drops them under SDL's lock.
@@ -4548,8 +4549,7 @@ bool Session::startConnectionAsync()
     // handler subscribes; with the setting off nothing is registered.
     if (m_Preferences->automaticMouseMode) {
         LiSetCursorStateCallbacks(clCursorState, clCursorShape);
-    }
-    else {
+    } else {
         LiSetCursorStateCallbacks(nullptr, nullptr);
     }
 

@@ -277,14 +277,14 @@ public:
     void handleHostCursorTick();
 
     // Automatic mouse mode, for the stats overlay; safe to call from any thread.
-    static
-    QString getMouseModeStatus();
+    static QString getMouseModeStatus();
 
     static
     QString getUnmappedGamepads();
 
     // KeyCombo 枚举（公开以便 OverlayMenu 等外部组件调用）
-    enum KeyCombo {
+    enum KeyCombo
+    {
         KeyComboQuit,
         KeyComboUngrabInput,
         KeyComboToggleFullScreen,
@@ -405,15 +405,14 @@ private:
     void updateRemoteCursorVisibility(bool visible);
 
     // 系统光标替换（v1 远端光标和 v2 自动鼠标模式共用）
-    static
-    bool nativeCursorSubstitutionEnabled();
+    static bool nativeCursorSubstitutionEnabled();
 
-    static
-    bool toSdlSystemCursor(NativeCursorShape shape, SDL_SystemCursor& systemCursor);
+    static bool toSdlSystemCursor(NativeCursorShape shape, SDL_SystemCursor& systemCursor);
 
     void cancelPendingRemoteCursorHide();
 
-    struct HostCursorShape {
+    struct HostCursorShape
+    {
         int width;
         int height;
         int hotspotX;
@@ -437,8 +436,7 @@ private:
 
     void publishMouseModeStatus();
 
-    static
-    void clearMouseModeStatus();
+    static void clearMouseModeStatus();
 
     void evaluateCursorMode();
 
@@ -455,8 +453,7 @@ private:
 
     bool getHostCursorClipRect(SDL_Rect* rect);
 
-    static
-    Uint32 cursorModeTimerCallback(Uint32 interval, void* param);
+    static Uint32 cursorModeTimerCallback(Uint32 interval, void* param);
 
     SDL_Cursor* getHostSdlCursor();
 
