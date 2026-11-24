@@ -137,12 +137,25 @@ jobs:
           }
           result=""
           run_id=""
+          # A finished Windows build of the same code (differing only in .github/) will do
+          while IFS=: read -r rid rsha; do
+            [ -n "$rid" ] || continue
+            git cat-file -e "$rsha^{commit}" 2>/dev/null || continue
+            git diff --quiet "$rsha" "$SHA" -- . ':(exclude).github' || continue
+            [ "$(windows_result "$rid")" = success ] || continue
+            run_id=$rid
+            result=success
+            echo "Reusing build $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id of ${rsha:0:10}, which has the same code"
+            break
+          done < <(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$BUILD_WORKFLOW/runs?status=completed&per_page=20" \
+                     --jq '.workflow_runs[] | "\(.id):\(.head_sha)"')
           for _ in $(seq 1 6); do
+            [ -n "$run_id" ] && break
             run_id=$(runs '[.workflow_runs[] | select(.conclusion == null or .conclusion == "success")] | sort_by(.created_at) | last | .id // empty')
             [ -n "$run_id" ] && break
             sleep 15
           done
-          if [ -n "$run_id" ]; then
+          if [ -n "$run_id" ] && [ "$result" != success ]; then
             echo "Using build $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id"
             result=$(windows_result "$run_id")
             echo "Its Windows build finished with '$result'"
@@ -174,13 +187,13 @@ jobs:
         env:
           RUN_ID: ${{ steps.build.outputs.run_id }}
         run: |
-          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" -D downloaded \
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" -D "$RUNNER_TEMP/downloaded" \
             -p 'Moonlight-VPlus-Setup-*' -p 'Moonlight-VPlus-Portable-x64-*' -p 'Moonlight-VPlus-Portable-arm64-*'
-          mkdir assets
-          find downloaded -type f \( -name 'Moonlight-VPlus-Setup-*.exe' -o -name 'Moonlight-VPlus-Portable-*.zip' \) -exec cp {} assets/ \;
-          [ -n "$(ls assets/*.exe 2>/dev/null)" ] || { echo "::error::No installer was built"; exit 1; }
-          (cd assets && sha256sum -- * > SHA256SUMS.txt)
-          ls -la assets
+          mkdir -p "$RUNNER_TEMP/assets"
+          find "$RUNNER_TEMP/downloaded" -type f \( -name 'Moonlight-VPlus-Setup-*.exe' -o -name 'Moonlight-VPlus-Portable-*.zip' \) -exec cp {} "$RUNNER_TEMP/assets/" \;
+          [ -n "$(ls "$RUNNER_TEMP"/assets/*.exe 2>/dev/null)" ] || { echo "::error::No installer was built"; exit 1; }
+          (cd "$RUNNER_TEMP/assets" && sha256sum -- * > SHA256SUMS.txt)
+          ls -la "$RUNNER_TEMP/assets"
 
       - name: Write the release notes
         run: |
@@ -209,7 +222,7 @@ jobs:
 
       - name: Publish the release
         run: |
-          gh release create "$TAG" assets/* --repo "$GITHUB_REPOSITORY" --target "$SHA" \
+          gh release create "$TAG" "$RUNNER_TEMP"/assets/* --repo "$GITHUB_REPOSITORY" --target "$SHA" \
             --title "$TITLE" --notes-file notes.md
           echo "Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
 
