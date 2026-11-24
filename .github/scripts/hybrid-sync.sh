@@ -18,6 +18,10 @@
 #   SUB_FORK          owner/repo of our fork of the submodule
 #   SUB_DIR           checkout of SUB_FORK on its BRANCH
 #   SUB_SUBJECT       subject of our commit that points the submodule at SUB_FORK
+#   VERSION_TAGS      glob of upstream tags to copy into this repository (for
+#                     builds that take their version from git describe), e.g. v*
+#   VERSION_CMD       command printing the version of HEAD (e.g. 6.5.7); when set,
+#                     releases are tagged v<version>-hybrid.<date>.<time>
 #
 # Writes key=value lines to $GITHUB_OUTPUT (or stdout): release, sha, tag,
 # title, base_desc, conflict, conflict_commit.
@@ -65,6 +69,9 @@ old_head=$(git rev-parse HEAD)
 
 git remote get-url upstream >/dev/null 2>&1 || git remote add upstream "https://github.com/$UPSTREAM.git"
 git fetch -q --no-tags upstream master
+if [ -n "${VERSION_TAGS:-}" ]; then
+    git fetch -q --no-tags upstream "refs/tags/$VERSION_TAGS:refs/tags/$VERSION_TAGS"
+fi
 
 if [ -z "${UPSTREAM_TAG:-}" ]; then
     UPSTREAM_TAG=$(gh api "repos/$UPSTREAM/releases/latest" --jq .tag_name)
@@ -151,7 +158,7 @@ out base_desc "$base_desc"
 # Is a release due? Yes if we rebased, if we never released, if the branch
 # moved since the last release, or if asked.
 last_tag=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '[.[] | select(.tag_name | startswith("hybrid-"))] | sort_by(.created_at) | last | .tag_name // ""')
+            --jq '[.[] | select(.tag_name | startswith("hybrid-") or test("-hybrid[.]"))] | sort_by(.created_at) | last | .tag_name // ""')
 last_sha=""
 if [ -n "$last_tag" ]; then
     git fetch -q --no-tags origin "+refs/tags/$last_tag:refs/tags/$last_tag" 2>/dev/null || true
@@ -170,7 +177,12 @@ if [ "$rebased" = true ] || [ "$changed" = true ] || [ "${FORCE_RELEASE:-false}"
 fi
 echo "Last hybrid release: ${last_tag:-none} (${last_sha:-n/a}); release due: $release"
 
-tag="hybrid-$(date -u +%Y%m%d-%H%M)"
+if [ -n "${VERSION_CMD:-}" ]; then
+    version=$(bash -c "$VERSION_CMD")
+    tag="v$version-hybrid.$(date -u +%Y%m%d.%H%M)"
+else
+    tag="hybrid-$(date -u +%Y%m%d-%H%M)"
+fi
 out tag "$tag"
 out title "Hybrid mouse $(date -u +%Y-%m-%d), based on $title_base"
 out release "$release"
@@ -179,6 +191,13 @@ out conflict ""
 if [ "${DRY_RUN:-false}" = true ]; then
     note "Dry run: not pushing"
     exit 0
+fi
+
+# Builds take their version from these tags, so they go up before any push that
+# starts a build. A tag upstream moved is left as this repository has it.
+if [ -n "${VERSION_TAGS:-}" ]; then
+    git push -q origin "refs/tags/$VERSION_TAGS:refs/tags/$VERSION_TAGS" 2>&1 ||
+        note "Some upstream tags were not copied (upstream may have moved them)"
 fi
 
 if [ "$rebased" = true ]; then

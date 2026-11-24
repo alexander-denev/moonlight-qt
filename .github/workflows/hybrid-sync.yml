@@ -72,6 +72,8 @@ jobs:
           SUB_FORK: ${{ github.repository_owner }}/moonlight-common-c
           SUB_DIR: ${{ github.workspace }}/common-c
           SUB_SUBJECT: 'build: use the cursor protocol v2 moonlight-common-c'
+          VERSION_TAGS: 'v*'
+          VERSION_CMD: python3 scripts/derive-version.py --field base
         run: bash .github/scripts/hybrid-sync.sh
 
       - name: Open an issue about the conflict
