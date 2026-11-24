@@ -14,8 +14,9 @@
 #include <QTextStream>
 #include <QTimer>
 
-// GitHub repository for update checks
-#define GITHUB_OWNER "qiin2333"
+// GitHub repository for update checks. This fork's releases carry the
+// automatic mouse mode build; upstream's would replace it with one without.
+#define GITHUB_OWNER "alexander-denev"
 #define GITHUB_REPO  "moonlight-qt"
 
 AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
