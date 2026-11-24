@@ -1,0 +1,206 @@
+name: Hybrid mouse sync and release
+
+# Every day: if upstream has published a new "Latest" release, move the
+# hybrid-mouse branch onto it. Whenever hybrid-mouse has changed since the last
+# hybrid release (or on the first run), build it and publish a release with the
+# Windows installers. If our changes no longer apply cleanly, or the build
+# fails, an issue is opened in this repository and the last release stays as it is.
+on:
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: Build and publish a release even if nothing changed
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+
+concurrency:
+  group: hybrid-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: qiin2333/moonlight-qt
+  BRANCH: hybrid-mouse
+  BUILD_WORKFLOW: build.yml
+  WINDOWS_JOB: build-windows
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      release: ${{ steps.sync.outputs.release }}
+      sha: ${{ steps.sync.outputs.sha }}
+      tag: ${{ steps.sync.outputs.tag }}
+      title: ${{ steps.sync.outputs.title }}
+      base_desc: ${{ steps.sync.outputs.base_desc }}
+      upstream_tag: ${{ steps.sync.outputs.upstream_tag }}
+    steps:
+      - name: Check out hybrid-mouse
+        uses: actions/checkout@v5
+        with:
+          ref: hybrid-mouse
+          path: repo
+          fetch-depth: 0
+          # A personal token, because pushing a rebase can include upstream's
+          # workflow changes, which GITHUB_TOKEN may not push.
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Check out our moonlight-common-c fork
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/moonlight-common-c
+          ref: hybrid-mouse
+          path: common-c
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Move hybrid-mouse onto upstream's latest release
+        id: sync
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_RELEASE: ${{ inputs.force_release || 'false' }}
+          SUB_PATH: moonlight-common-c/moonlight-common-c
+          SUB_UPSTREAM: qiin2333/moonlight-common-c
+          SUB_FORK: ${{ github.repository_owner }}/moonlight-common-c
+          SUB_DIR: ${{ github.workspace }}/common-c
+          SUB_SUBJECT: 'build: use the cursor protocol v2 moonlight-common-c'
+        run: bash .github/scripts/hybrid-sync.sh
+
+      - name: Open an issue about the conflict
+        if: failure() && steps.sync.outputs.conflict != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFLICT_REPO: ${{ steps.sync.outputs.conflict }}
+          CONFLICT_COMMIT: ${{ steps.sync.outputs.conflict_commit }}
+          UPSTREAM_TAG: ${{ steps.sync.outputs.upstream_tag }}
+        run: |
+          title="Hybrid mouse: upstream $UPSTREAM_TAG needs a manual merge"
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+                       --jq ".[] | select(.title == \"$title\") | .number")
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing is already open"
+            exit 0
+          fi
+          body=$(cat <<EOF
+          Upstream published **$UPSTREAM_TAG**, but one of our hybrid-mouse commits no longer applies on top of it:
+
+          - repository: \`$CONFLICT_REPO\`
+          - commit: \`$CONFLICT_COMMIT\`
+
+          Nothing was changed: \`hybrid-mouse\` and the last hybrid release are as they were. This check runs again every day, but it will keep failing until someone moves the commits onto \`$UPSTREAM_TAG\` by hand (bring this issue to Claude), after which the next run builds and releases it.
+
+          Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+          )
+          gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" -f body="$body" --jq .html_url
+
+  release:
+    needs: sync
+    if: needs.sync.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ needs.sync.outputs.sha }}
+      TAG: ${{ needs.sync.outputs.tag }}
+      TITLE: ${{ needs.sync.outputs.title }}
+      BASE_DESC: ${{ needs.sync.outputs.base_desc }}
+    steps:
+      - name: Check out the commit being released
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.sync.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Build
+        id: build
+        run: |
+          start=$(date -u -d '-2 min' +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run "$BUILD_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          run_id=""
+          for _ in $(seq 1 60); do
+            sleep 10
+            run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$BUILD_WORKFLOW/runs?event=workflow_dispatch&branch=$BRANCH&per_page=20" \
+                       --jq "[.workflow_runs[] | select(.head_sha == \"$SHA\" and .created_at >= \"$start\")] | sort_by(.created_at) | .[0].id // empty")
+            [ -n "$run_id" ] && break
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::The build for $SHA did not start"
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Build: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id" | tee -a "$GITHUB_STEP_SUMMARY"
+          while [ "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)" != completed ]; do
+            sleep 60
+          done
+          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" \
+                         --jq "[.jobs[] | select(.name == \"$WINDOWS_JOB\")][0].conclusion")
+          if [ "$conclusion" != success ]; then
+            echo "::error::The Windows build finished with '$conclusion'"
+            exit 1
+          fi
+
+      - name: Collect the installers
+        env:
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: |
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" -D downloaded \
+            -p 'Moonlight-VPlus-Setup-*' -p 'Moonlight-VPlus-Portable-x64-*' -p 'Moonlight-VPlus-Portable-arm64-*'
+          mkdir assets
+          find downloaded -type f \( -name 'Moonlight-VPlus-Setup-*.exe' -o -name 'Moonlight-VPlus-Portable-*.zip' \) -exec cp {} assets/ \;
+          [ -n "$(ls assets/*.exe 2>/dev/null)" ] || { echo "::error::No installer was built"; exit 1; }
+          (cd assets && sha256sum -- * > SHA256SUMS.txt)
+          ls -la assets
+
+      - name: Write the release notes
+        run: |
+          git remote add upstream "https://github.com/$UPSTREAM.git"
+          git fetch -q --no-tags upstream master
+          base=$(git merge-base "$SHA" upstream/master)
+          {
+            echo "Built from \`$BRANCH\` at \`${SHA:0:10}\`, on top of $BASE_DESC."
+            echo
+            echo "Moonlight client with **automatic (hybrid) mouse mode**. With the hybrid-mouse Foundation Sunshine host (https://github.com/$GITHUB_REPOSITORY_OWNER/foundation-sunshine/releases), the host's cursor is drawn as your own cursor, and the mouse switches between desktop and game control by itself when a game hides or captures the cursor. With other hosts it works like normal Moonlight."
+            echo
+            echo "- Setting: Settings → Input → Mouse → **Automatic mouse mode** (on by default)"
+            echo "- **Ctrl+Alt+Shift+M**: switch to the other mode and keep it"
+            echo "- **Ctrl+Alt+Shift+A**: keep the current mode, or go back to automatic"
+            echo "- **Ctrl+Alt+Shift+C**: show the cursor in the video instead of drawing it locally"
+            echo
+            echo "Files: \`Moonlight-VPlus-Setup-*.exe\` is the installer; the \`Portable\` zips run without installing (x64 or ARM64)."
+
+            echo
+            echo "### Changes on top of upstream"
+            git log --reverse --no-merges --format='- %s' "$base..$SHA"
+            echo
+            echo "The installers are not code-signed, so Windows SmartScreen warns when you run them: choose **More info → Run anyway**."
+          } > notes.md
+          cat notes.md
+
+      - name: Publish the release
+        run: |
+          gh release create "$TAG" assets/* --repo "$GITHUB_REPOSITORY" --target "$SHA" \
+            --title "$TITLE" --notes-file notes.md
+          echo "Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Open an issue about the failed build
+        if: failure()
+        run: |
+          title="Hybrid mouse: the release build failed"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+                       --jq ".[] | select(.title == \"$title\") | .number")
+          if [ -n "$existing" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$existing/comments" -f body="Failed again for \`${SHA:0:10}\`: $url" --jq .html_url
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$title" \
+              -f body="Building \`${SHA:0:10}\` of \`$BRANCH\` for a hybrid release failed, so no release was published and the last one stays as it is. Details: $url" --jq .html_url
+          fi
